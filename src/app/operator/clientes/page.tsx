@@ -19,6 +19,7 @@ export default async function ClientesPage() {
       </div>
 
       <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
@@ -50,6 +51,7 @@ export default async function ClientesPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

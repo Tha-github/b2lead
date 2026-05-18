@@ -24,7 +24,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: { clie
         </Link>
       </div>
 
-      <div className="card p-4 flex flex-wrap gap-3">
+      <div className="card p-4 flex flex-col sm:flex-row flex-wrap gap-3">
         <select className="input w-auto" defaultValue={searchParams.client || ""}>
           <option value="">Todos os clientes</option>
           {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -36,6 +36,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: { clie
       </div>
 
       <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
@@ -71,6 +72,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: { clie
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

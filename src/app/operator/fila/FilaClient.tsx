@@ -129,8 +129,8 @@ export default function FilaClient({ filaData, today }: Props) {
             </button>
 
             {!isCollapsed && (
-              <div className="border-t border-slate-100">
-                <table className="w-full">
+              <div className="border-t border-slate-100 overflow-x-auto">
+                <table className="w-full min-w-[560px]">
                   <thead>
                     <tr className="bg-slate-50">
                       <th className="text-left px-6 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Lead</th>
@@ -160,12 +160,12 @@ export default function FilaClient({ filaData, today }: Props) {
                                 Enviado
                               </span>
                             ) : (
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5">
                                 <a
                                   href={waLink}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="btn-primary py-1.5 px-3 text-xs"
+                                  className="btn-primary py-1.5 px-3 text-xs whitespace-nowrap"
                                 >
                                   <MessageCircle className="h-3.5 w-3.5" />
                                   Abrir WhatsApp
@@ -174,7 +174,7 @@ export default function FilaClient({ filaData, today }: Props) {
                                 <button
                                   onClick={() => markSent(lead.id, client.id)}
                                   disabled={sending === lead.id}
-                                  className="btn-secondary py-1.5 px-3 text-xs"
+                                  className="btn-secondary py-1.5 px-3 text-xs whitespace-nowrap"
                                 >
                                   {sending === lead.id ? "..." : "Marcar enviado"}
                                 </button>

@@ -46,7 +46,7 @@ export default async function OperatorDashboard() {
         </div>
         <div className="divide-y divide-slate-100">
           {clients.map((client) => (
-            <div key={client.id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50">
+            <div key={client.id} className="px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 hover:bg-slate-50">
               <div>
                 <p className="font-medium text-slate-800">{client.name}</p>
                 <p className="text-sm text-slate-500">{client.email}</p>
