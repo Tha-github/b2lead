@@ -62,7 +62,7 @@ export default function OperatorSidebar() {
       {/* Botão hamburguer — só aparece no mobile */}
       <button
         onClick={() => setOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-sidebar-bg text-white rounded-lg shadow-lg"
+        className={`lg:hidden fixed top-4 left-4 z-50 p-2 bg-sidebar-bg text-white rounded-lg shadow-lg transition-opacity ${open ? "opacity-0 pointer-events-none" : "opacity-100"}`}
       >
         <Menu className="h-5 w-5" />
       </button>
