@@ -35,6 +35,7 @@ export default function NewClientButton() {
       toast.success(`Cliente ${form.name} criado com sucesso!`);
       setOpen(false);
       setForm({ name: "", email: "", password: "", daily_limit: "50", message_template: form.message_template });
+      router.push("/operator/clientes");
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Erro ao criar cliente");
