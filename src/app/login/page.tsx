@@ -45,10 +45,7 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 className="text-xl font-semibold text-slate-800 mb-1">Acessar plataforma</h2>
-          <p className="text-xs text-slate-400 mb-6">
-            Acesso operador padrão: <span className="text-brand-600 font-medium">admin@b2lead.com</span> / admin123
-          </p>
+          <h2 className="text-xl font-semibold text-slate-800 mb-6">Acessar plataforma</h2>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
