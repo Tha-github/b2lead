@@ -4,7 +4,7 @@ import { useState } from "react";
 import { LEAD_STATUS_LABELS } from "@/lib/utils";
 import { formatDate, formatPhone } from "@/lib/utils";
 import type { Lead, LeadStatus } from "@/lib/types";
-import { Building2, Phone, MapPin, X, ArrowRight } from "lucide-react";
+import { Building2, Phone, MapPin, X } from "lucide-react";
 
 const COLUMNS: LeadStatus[] = [
   "novo",
@@ -30,30 +30,13 @@ const COLUMN_BG: Record<LeadStatus, string> = {
   nao_interessado: "bg-red-50",
 };
 
-const NEXT_STATUS: Partial<Record<LeadStatus, LeadStatus>> = {
-  novo: "mensagem_enviada",
-  mensagem_enviada: "respondeu",
-  respondeu: "interessado",
-};
-
 interface Props {
   leads: Lead[];
   clientId: string;
 }
 
-export default function KanbanBoard({ leads: initial }: Props) {
-  const [leads, setLeads] = useState<Lead[]>(initial);
+export default function KanbanBoard({ leads }: Props) {
   const [selected, setSelected] = useState<Lead | null>(null);
-
-  async function moveToStatus(lead: Lead, status: LeadStatus) {
-    setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, status } : l));
-    if (selected?.id === lead.id) setSelected({ ...lead, status });
-    await fetch("/api/leads/update-status", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lead_id: lead.id, status }),
-    });
-  }
 
   const grouped = COLUMNS.reduce<Record<LeadStatus, Lead[]>>(
     (acc, col) => { acc[col] = leads.filter((l) => l.status === col); return acc; },
@@ -106,15 +89,6 @@ export default function KanbanBoard({ leads: initial }: Props) {
                       <p className="text-xs text-slate-500">{[lead.city, lead.state].filter(Boolean).join(", ")}</p>
                     </div>
                   )}
-                  {NEXT_STATUS[col] && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); moveToStatus(lead, NEXT_STATUS[col]!); }}
-                      className="mt-2 flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800 font-medium"
-                    >
-                      <ArrowRight className="h-3 w-3" />
-                      {LEAD_STATUS_LABELS[NEXT_STATUS[col]!]}
-                    </button>
-                  )}
                 </div>
               ))}
               {grouped[col].length === 0 && (
@@ -125,6 +99,7 @@ export default function KanbanBoard({ leads: initial }: Props) {
         ))}
       </div>
 
+      {/* Modal de detalhe — só leitura */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
@@ -142,6 +117,7 @@ export default function KanbanBoard({ leads: initial }: Props) {
                 { label: "Segmento", value: selected.segment },
                 { label: "Cargo", value: selected.position },
                 { label: "Cidade", value: [selected.city, selected.state].filter(Boolean).join(", ") || null },
+                { label: "Status atual", value: LEAD_STATUS_LABELS[selected.status] },
                 { label: "Cadastrado em", value: formatDate(selected.created_at) },
               ].map(({ label, value }) =>
                 value ? (
@@ -153,18 +129,9 @@ export default function KanbanBoard({ leads: initial }: Props) {
               )}
             </div>
             <div className="px-6 pb-6">
-              <p className="text-xs text-slate-500 mb-2 font-medium">Mover para:</p>
-              <div className="flex flex-wrap gap-2">
-                {COLUMNS.filter((c) => c !== selected.status).map((col) => (
-                  <button
-                    key={col}
-                    onClick={() => { moveToStatus(selected, col); setSelected(null); }}
-                    className="btn-secondary text-xs py-1.5 px-3"
-                  >
-                    {LEAD_STATUS_LABELS[col]}
-                  </button>
-                ))}
-              </div>
+              <button onClick={() => setSelected(null)} className="btn-secondary w-full justify-center">
+                Fechar
+              </button>
             </div>
           </div>
         </div>
