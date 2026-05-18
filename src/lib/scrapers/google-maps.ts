@@ -34,12 +34,34 @@ export async function scrapeGoogleMaps(
   location: string,
   maxResults: number
 ) {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    args: [
+      "--disable-blink-features=AutomationControlled",
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-accelerated-2d-canvas",
+      "--no-first-run",
+      "--no-zygote",
+      "--disable-gpu",
+    ],
+  });
   const ctx = await browser.newContext({
     locale: "pt-BR",
     viewport: { width: 1366, height: 768 },
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    extraHTTPHeaders: {
+      "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+    },
   });
+
+  // Remove o flag de webdriver para evitar detecção
+  await ctx.addInitScript(() => {
+    Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+  });
+
   const page = await ctx.newPage();
 
   try {
@@ -47,7 +69,6 @@ export async function scrapeGoogleMaps(
     const searchTerm = [query, location].filter(Boolean).join(" ");
     console.log(`[Maps] Buscando: "${searchTerm}"`);
 
-    // Tenta URL principal do Maps
     await page.goto(
       `https://www.google.com/maps/search/${encodeURIComponent(searchTerm)}?hl=pt-BR`,
       { waitUntil: "load", timeout: 40000 }
@@ -80,20 +101,22 @@ export async function scrapeGoogleMaps(
     await diagnose(page);
 
     // Aguarda place links ou feed
-    const hasResults = await page.waitForFunction(
-      () => {
-        const links = document.querySelectorAll('a[href*="/maps/place/"]');
-        const feed = document.querySelector('[role="feed"]');
-        return links.length > 0 || !!feed;
-      },
-      { timeout: 25000 }
-    ).catch(() => null);
+    const hasResults = await page
+      .waitForFunction(
+        () => {
+          const links = document.querySelectorAll('a[href*="/maps/place/"]');
+          const feed = document.querySelector('[role="feed"]');
+          return links.length > 0 || !!feed;
+        },
+        { timeout: 25000 }
+      )
+      .catch(() => null);
 
     if (!hasResults) {
       if (DEBUG) await snap(page, "03-no-feed");
       await diagnose(page);
 
-      // Tenta URL alternativa: google.com/search com maps
+      // Tenta URL alternativa
       console.log("[Maps] Tentando URL alternativa...");
       await page.goto(
         `https://www.google.com/search?q=${encodeURIComponent(searchTerm)}&tbm=map&hl=pt-BR`,
@@ -103,13 +126,17 @@ export async function scrapeGoogleMaps(
       if (DEBUG) await snap(page, "04-alternative");
       await diagnose(page);
 
-      const hasResults2 = await page.waitForFunction(
-        () => document.querySelectorAll('a[href*="/maps/place/"]').length > 0,
-        { timeout: 15000 }
-      ).catch(() => null);
+      const hasResults2 = await page
+        .waitForFunction(
+          () => document.querySelectorAll('a[href*="/maps/place/"]').length > 0,
+          { timeout: 15000 }
+        )
+        .catch(() => null);
 
       if (!hasResults2) {
-        throw new Error(`Nenhum resultado encontrado para "${searchTerm}". Tente uma busca diferente.`);
+        throw new Error(
+          `Nenhum resultado encontrado para "${searchTerm}". Tente uma busca diferente.`
+        );
       }
     }
 
@@ -127,21 +154,28 @@ export async function scrapeGoogleMaps(
       if (scrollTries > 30 || noNewCount >= 4) break;
       scrollTries++;
 
-      // Coleta URLs — tenta href absoluto e relativo
       const rawUrls: string[] = await page.evaluate(() => {
         const links = Array.from(document.querySelectorAll('a[href*="/maps/place/"]'));
-        return links.map((a) => {
-          const href = (a as HTMLAnchorElement).href || (a as HTMLAnchorElement).getAttribute("href") || "";
-          return href.split("?")[0].split("@")[0].split(" ")[0];
-        }).filter((h) => h.includes("/maps/place/") && h.length > 30);
+        return links
+          .map((a) => {
+            const href =
+              (a as HTMLAnchorElement).href ||
+              (a as HTMLAnchorElement).getAttribute("href") ||
+              "";
+            return href.split("?")[0].split("@")[0].split(" ")[0];
+          })
+          .filter((h) => h.includes("/maps/place/") && h.length > 30);
       });
 
       const unique = Array.from(new Set(rawUrls));
       const newUrls = unique.filter((u) => !collected.has(u));
       console.log(`[Maps] Iter ${scrollTries}: ${unique.length} total, ${newUrls.length} novos`);
 
-      if (newUrls.length === 0) { noNewCount++; }
-      else { noNewCount = 0; }
+      if (newUrls.length === 0) {
+        noNewCount++;
+      } else {
+        noNewCount = 0;
+      }
 
       for (const url of newUrls) {
         const job = getJob(jobId);
@@ -151,59 +185,87 @@ export async function scrapeGoogleMaps(
         try {
           const detail = await ctx.newPage();
           const fullUrl = url.startsWith("http") ? url : `https://www.google.com${url}`;
-          await detail.goto(`${fullUrl}?hl=pt-BR`, { waitUntil: "domcontentloaded", timeout: 15000 });
-          await detail.waitForTimeout(1200);
+          await detail.goto(`${fullUrl}?hl=pt-BR`, {
+            waitUntil: "domcontentloaded",
+            timeout: 15000,
+          });
+          await detail.waitForTimeout(1500);
 
           const data = await detail.evaluate(() => {
             const name = document.querySelector("h1")?.textContent?.trim() ?? "";
             if (!name || name.length < 2) return null;
 
-            // Telefone — busca no aria-label e no texto da página
+            // Telefone — prioriza link tel: (mais confiável)
             let phone = "";
-            const phoneEl = document.querySelector(
-              '[data-tooltip*="telefone"], [data-tooltip*="phone"], [aria-label*="telefone"], [data-item-id*="phone"] button'
-            );
-            phone = phoneEl?.getAttribute("aria-label") ?? phoneEl?.textContent?.trim() ?? "";
-            if (!phone) {
-              const m = document.body.innerText.match(/(?:\(?\d{2}\)?\s?)(?:9\s?)?\d{4,5}[-\s]?\d{4}/);
+            const telLink = document.querySelector<HTMLAnchorElement>('a[href^="tel:"]');
+            if (telLink) {
+              phone = telLink.href.replace("tel:", "");
+            } else {
+              const phoneEl = document.querySelector(
+                '[data-item-id*="phone"] button, [aria-label*="telefone" i], [data-tooltip*="phone" i]'
+              );
+              const raw =
+                phoneEl?.getAttribute("aria-label") ?? phoneEl?.textContent?.trim() ?? "";
+              const m = raw.match(/[\d\s\(\)\-\+]{7,}/);
               phone = m?.[0] ?? "";
+              if (!phone) {
+                const m2 = document.body.innerText.match(
+                  /(?:\(?\d{2}\)?\s?)(?:9\s?)?\d{4,5}[-\s]?\d{4}/
+                );
+                phone = m2?.[0] ?? "";
+              }
             }
             phone = phone.replace(/\D/g, "").replace(/^55/, "");
 
             // Endereço
             const addrEl = document.querySelector(
-              '[data-item-id*="address"] button, button[aria-label*="endereço"], button[aria-label*="Endereço"]'
+              '[data-item-id^="address"] button, button[aria-label*="enderec" i], button[aria-label*="address" i]'
             );
-            const address = addrEl?.textContent?.trim() ?? addrEl?.getAttribute("aria-label") ?? "";
+            const address =
+              addrEl?.textContent?.trim() ?? addrEl?.getAttribute("aria-label") ?? "";
 
-            // Segmento
-            const segEl = document.querySelector("button[jsaction*='category'], .DkEaL");
+            // Segmento — vários seletores possíveis
+            const segEl =
+              document.querySelector('button[jsaction*="category"]') ??
+              document.querySelector(".DkEaL") ??
+              document.querySelector('[jsaction*="pane.rating.category"]');
             const segment = segEl?.textContent?.trim() ?? "";
 
             // Website
             const webEl = document.querySelector<HTMLAnchorElement>(
-              'a[data-item-id*="authority"], a[aria-label*="site"], a[aria-label*="Site"]'
+              'a[data-item-id="authority"], a[aria-label*="site" i], a[aria-label*="Site"]'
             );
             const website = webEl?.href ?? "";
 
             return { name, phone, address, segment, website };
           });
 
-          if (!data?.name) { await detail.close(); continue; }
+          if (!data?.name) {
+            await detail.close();
+            continue;
+          }
 
-          // Extrai cidade e estado
-          let city = "", state = "";
+          // Extrai cidade e estado do endereço
+          let city = "",
+            state = "";
           if (data.address) {
-            const parts = data.address.split(",").map((s: string) => s.trim()).filter(Boolean).reverse();
+            const parts = data.address
+              .split(",")
+              .map((s: string) => s.trim())
+              .filter(Boolean)
+              .reverse();
             for (const p of parts) {
               const m = p.match(/\b([A-Z]{2})\b/);
-              if (m && !state) { state = m[1]; continue; }
+              if (m && !state) {
+                state = m[1];
+                continue;
+              }
               const cleaned = p.replace(/\d{5}-?\d{3}/, "").trim();
               if (cleaned && !city) city = cleaned;
             }
           }
 
-          // Email do site (best-effort, não bloqueia)
+          // Email do site (best-effort)
           let email = "";
           if (data.website) {
             try {
@@ -217,14 +279,21 @@ export async function scrapeGoogleMaps(
           }
 
           const lead: ExtractedLead = {
-            name: data.name, company: data.name,
-            phone: data.phone, email,
-            segment: data.segment, city, state,
-            website: data.website, source: "Google Maps",
+            name: data.name,
+            company: data.name,
+            phone: data.phone,
+            email,
+            segment: data.segment,
+            city,
+            state,
+            website: data.website,
+            source: "Google Maps",
           };
 
           pushResult(jobId, lead);
-          console.log(`[Maps] ✓ ${getJob(jobId)?.results.length}/${maxResults} | ${data.name} | tel: ${data.phone || "—"}`);
+          console.log(
+            `[Maps] ✓ ${getJob(jobId)?.results.length}/${maxResults} | ${data.name} | tel: ${data.phone || "—"}`
+          );
           await detail.close();
           await page.waitForTimeout(400);
         } catch (err) {
@@ -235,13 +304,22 @@ export async function scrapeGoogleMaps(
       // Scrola o painel de resultados
       await page.evaluate(() => {
         const feed = document.querySelector('[role="feed"]') as HTMLElement | null;
-        if (feed) { feed.scrollBy(0, 1500); return; }
+        if (feed) {
+          feed.scrollBy(0, 1500);
+          return;
+        }
         window.scrollBy(0, 1000);
       });
       await page.waitForTimeout(2500);
 
-      const ended = await page.locator("text=/fim da lista|Você chegou ao fim/i").isVisible().catch(() => false);
-      if (ended) { console.log("[Maps] Fim da lista atingido"); break; }
+      const ended = await page
+        .locator("text=/fim da lista|Você chegou ao fim/i")
+        .isVisible()
+        .catch(() => false);
+      if (ended) {
+        console.log("[Maps] Fim da lista atingido");
+        break;
+      }
     }
 
     const finalJob = getJob(jobId);
