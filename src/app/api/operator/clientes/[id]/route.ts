@@ -1,6 +1,26 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { updateClient } from "@/lib/db";
+import { createClient } from "@supabase/supabase-js";
+
+function sb() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
+
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getSession();
+  if (session.role !== "operator") return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
+
+  // Apaga leads, batches e o usuário vinculado em cascata via FK, depois apaga o cliente
+  const { data: client } = await sb().from("clients").select("user_id").eq("id", params.id).single();
+  await sb().from("clients").delete().eq("id", params.id);
+  if (client?.user_id) await sb().from("users").delete().eq("id", client.user_id);
+  return NextResponse.json({ success: true });
+}
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await getSession();

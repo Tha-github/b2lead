@@ -6,6 +6,7 @@ import { LEAD_STATUS_LABELS, LEAD_STATUS_COLORS } from "@/lib/utils";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import ClientDetailActions from "./ClientDetailActions";
+import DeleteClientButton from "../DeleteClientButton";
 import { getClientById, getLeads, getDailySendCount } from "@/lib/db";
 
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
@@ -34,6 +35,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           <p className="text-slate-500 text-sm">{client.email}</p>
         </div>
         <ClientDetailActions client={client as never} />
+        <DeleteClientButton clientId={client.id} clientName={client.name} />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
