@@ -45,9 +45,14 @@ export default function KanbanBoard({ leads: initial }: Props) {
   const [leads, setLeads] = useState<Lead[]>(initial);
   const [selected, setSelected] = useState<Lead | null>(null);
 
-  function moveToStatus(lead: Lead, status: LeadStatus) {
+  async function moveToStatus(lead: Lead, status: LeadStatus) {
     setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, status } : l));
     if (selected?.id === lead.id) setSelected({ ...lead, status });
+    await fetch("/api/leads/update-status", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lead_id: lead.id, status }),
+    });
   }
 
   const grouped = COLUMNS.reduce<Record<LeadStatus, Lead[]>>(

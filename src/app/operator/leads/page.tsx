@@ -2,9 +2,10 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
-import { LEAD_STATUS_LABELS, LEAD_STATUS_COLORS } from "@/lib/utils";
+import { LEAD_STATUS_LABELS } from "@/lib/utils";
 import { Upload } from "lucide-react";
 import { getLeads, getClients } from "@/lib/db";
+import LeadStatusSelect from "./LeadStatusSelect";
 
 export default async function LeadsPage({ searchParams }: { searchParams: { client?: string; status?: string } }) {
   const [leads, clients] = await Promise.all([
@@ -37,41 +38,36 @@ export default async function LeadsPage({ searchParams }: { searchParams: { clie
 
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Lead</th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Empresa / Segmento</th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Telefone</th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente</th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Data</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {leads.map((lead) => (
-              <tr key={lead.id} className="hover:bg-slate-50">
-                <td className="px-6 py-3">
-                  <p className="font-medium text-slate-800">{lead.name}</p>
-                  {lead.position && <p className="text-xs text-slate-400">{lead.position}</p>}
-                </td>
-                <td className="px-6 py-3">
-                  <p className="text-sm text-slate-700">{lead.company || "—"}</p>
-                  {lead.segment && <p className="text-xs text-slate-400">{lead.segment}</p>}
-                </td>
-                <td className="px-6 py-3 text-sm text-slate-600">{lead.phone}</td>
-                <td className="px-6 py-3 text-sm text-slate-600">{lead.client_name || "—"}</td>
-                <td className="px-6 py-3">
-                  <span className={`badge ${LEAD_STATUS_COLORS[lead.status]}`}>{LEAD_STATUS_LABELS[lead.status]}</span>
-                </td>
-                <td className="px-6 py-3 text-sm text-slate-500">{formatDate(lead.created_at)}</td>
+          <table className="w-full">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Lead</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Telefone</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Data</th>
               </tr>
-            ))}
-            {!leads.length && (
-              <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-sm">Nenhum lead encontrado.</td></tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {leads.map((lead) => (
+                <tr key={lead.id} className="hover:bg-slate-50">
+                  <td className="px-6 py-3">
+                    <p className="font-medium text-slate-800">{lead.name}</p>
+                    {lead.company && <p className="text-xs text-slate-400">{lead.company}</p>}
+                  </td>
+                  <td className="px-6 py-3 text-sm text-slate-600 font-mono">{lead.phone}</td>
+                  <td className="px-6 py-3 text-sm text-slate-600">{lead.client_name || "—"}</td>
+                  <td className="px-6 py-3">
+                    <LeadStatusSelect leadId={lead.id} status={lead.status} />
+                  </td>
+                  <td className="px-6 py-3 text-sm text-slate-500">{formatDate(lead.created_at)}</td>
+                </tr>
+              ))}
+              {!leads.length && (
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-sm">Nenhum lead encontrado.</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
